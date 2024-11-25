@@ -1,6 +1,12 @@
-import requests
 from bs4 import BeautifulSoup
-import urllib.request
+import json
+
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 class BosePriceMediaMarkt:
 
@@ -10,31 +16,41 @@ class BosePriceMediaMarkt:
 
     def __getBosePriceFromMediaMarkt(self) -> float: 
 
-        # headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"}
-        # response = requests.get(self.__url, headers=headers, timeout=10)
+        gecko_service = Service(r"C:\Users\marcj\Documents\gecko\geckodriver.exe")
 
-        # # print(r)
+        options = Options()
+        options.add_argument("--headless")
 
-        # # Parsing the HTML
-        # soup = BeautifulSoup(response.content, 'html.parser')
-        # # print(soup.prettify())
+        driver = webdriver.Firefox(service=gecko_service, options=options)
 
-        # with open("output.html", "w", encoding="utf-8") as file:
-        #     file.write(soup.prettify())
         try:
-            # Open the URL and read its content
-            response = urllib.request.urlopen(self.__url)
-            
-            # data = response.read()
-            
-            # html_content = data.decode('utf-8')
-            
-            # print(html_content)
-            # with open("output.html", "w", encoding="utf-8") as file:
-            #     soup = BeautifulSoup(html_content, 'html.parser')
-            #     print(soup.prettify())
-            #     file.write(soup.prettify())
+            driver.get(self.__url)
 
-        except Exception as e:
-            print("Error fetching URL:", e)
+            html_content = driver.page_source
 
+            with open("output.html", "w", encoding="utf-8") as file:
+                file.write(html_content)
+
+            scripts = driver.find_elements("tag name", "script")
+
+            for script in scripts:
+
+                if "application/ld+json" in script.get_attribute("type"):
+                    try:
+                        json_data = json.loads(script.get_attribute("innerHTML"))
+                        
+                        if "@type" in json_data and json_data["@type"] == "BuyAction":
+                            price = float(json_data["object"]["offers"]["price"])
+
+                            return price
+
+                    except json.JSONDecodeError:
+                        pass 
+        
+        finally:
+            driver.quit()
+        
+        return 0
+    
+    def getPrice(self) -> float:
+        return self.bosePrice
